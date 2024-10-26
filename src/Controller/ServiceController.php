@@ -17,6 +17,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Symfony\Component\Validator\Exception\ValidationFailedException;
 use Symfony\Contracts\Cache\ItemInterface;
+use App\DTO\Request\UpdateServiceRequest;
 
 #[Route('/api')]
 class ServiceController extends AbstractController
@@ -95,26 +96,29 @@ class ServiceController extends AbstractController
     #[Route('/services/{id}', name: 'update_service', methods: ['PUT'])]
     public function update(Request $request, Service $service): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
+        // Deserialize into DTO
+        $updateRequest = $this->serializer->deserialize(
+            $request->getContent(),
+            UpdateServiceRequest::class,
+            'json'
+        );
 
-        // Find the provider
-        $providerId = $data['provider'] ?? null;
-        $provider = $providerId ? $this->providerRepository->find($providerId) : null;
-
-        if (!$provider) {
-            return new JsonResponse(['error' => 'Provider not found'], Response::HTTP_BAD_REQUEST);
+        // Validate
+        $violations = $this->validator->validate($updateRequest);
+        if (count($violations) > 0) {
+            throw new ValidationFailedException($updateRequest, $violations);
         }
 
-        // Update the service fields
-        $service->setName($data['name']);
-        $service->setDescription($data['description']);
-        $service->setPrice($data['price']);
-        $service->setProvider($provider);
-        $service->setUpdatedAt(new \DateTime());
+        // Update service with validated data
+        $service->setName($updateRequest->getName());
+        $service->setDescription($updateRequest->getDescription());
+        $service->setPrice($updateRequest->getPrice());
+
+        // Update timestamp handled by Entity lifecycle callback
 
         $this->entityManager->flush();
 
-        // Invalidate both services and providers cache as both are affected
+        // Invalidate both caches as service updates might affect provider data
         $this->cache->invalidateTags(['services_tag', 'providers_tag']);
 
         return new JsonResponse(
