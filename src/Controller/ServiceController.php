@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\DTO\Request\ServiceRequest;
 use App\Entity\Service;
 use App\Repository\ServiceRepository;
 use App\Repository\ProviderRepository;
@@ -12,8 +13,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use Symfony\Component\Validator\Exception\ValidationFailedException;
 use Symfony\Contracts\Cache\ItemInterface;
+use App\DTO\Request\UpdateServiceRequest;
 
 #[Route('/api')]
 class ServiceController extends AbstractController
@@ -23,6 +27,7 @@ class ServiceController extends AbstractController
         private ServiceRepository $serviceRepository,
         private ProviderRepository $providerRepository,
         private SerializerInterface $serializer,
+        private ValidatorInterface $validator,
         private TagAwareCacheInterface $cache
     ) {}
 
@@ -45,26 +50,39 @@ class ServiceController extends AbstractController
     #[Route('/services', name: 'create_service', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
+        // Deserialize into DTO
+        $serviceRequest = $this->serializer->deserialize(
+            $request->getContent(),
+            ServiceRequest::class,
+            'json'
+        );
 
-        // Find the provider
-        $providerId = $data['provider'] ?? null;
-        $provider = $providerId ? $this->providerRepository->find($providerId) : null;
-
-        if (!$provider) {
-            return new JsonResponse(['error' => 'Provider not found'], Response::HTTP_BAD_REQUEST);
+        // Validate
+        $violations = $this->validator->validate($serviceRequest);
+        if (count($violations) > 0) {
+            throw new ValidationFailedException($serviceRequest, $violations);
         }
 
+        // Find provider
+        $provider = $this->providerRepository->find($serviceRequest->getProviderId());
+        if (!$provider) {
+            return new JsonResponse(
+                ['message' => 'Provider not found'],
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        // Create service
         $service = new Service();
-        $service->setName($data['name']);
-        $service->setDescription($data['description']);
-        $service->setPrice($data['price']);
+        $service->setName($serviceRequest->getName());
+        $service->setDescription($serviceRequest->getDescription());
+        $service->setPrice($serviceRequest->getPrice());
         $service->setProvider($provider);
 
         $this->entityManager->persist($service);
         $this->entityManager->flush();
 
-        // Invalidate both services and providers cache as both are affected
+        // Invalidate cache
         $this->cache->invalidateTags(['services_tag', 'providers_tag']);
 
         return new JsonResponse(
@@ -78,26 +96,29 @@ class ServiceController extends AbstractController
     #[Route('/services/{id}', name: 'update_service', methods: ['PUT'])]
     public function update(Request $request, Service $service): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
+        // Deserialize into DTO
+        $updateRequest = $this->serializer->deserialize(
+            $request->getContent(),
+            UpdateServiceRequest::class,
+            'json'
+        );
 
-        // Find the provider
-        $providerId = $data['provider'] ?? null;
-        $provider = $providerId ? $this->providerRepository->find($providerId) : null;
-
-        if (!$provider) {
-            return new JsonResponse(['error' => 'Provider not found'], Response::HTTP_BAD_REQUEST);
+        // Validate
+        $violations = $this->validator->validate($updateRequest);
+        if (count($violations) > 0) {
+            throw new ValidationFailedException($updateRequest, $violations);
         }
 
-        // Update the service fields
-        $service->setName($data['name']);
-        $service->setDescription($data['description']);
-        $service->setPrice($data['price']);
-        $service->setProvider($provider);
-        $service->setUpdatedAt(new \DateTime());
+        // Update service with validated data
+        $service->setName($updateRequest->getName());
+        $service->setDescription($updateRequest->getDescription());
+        $service->setPrice($updateRequest->getPrice());
+
+        // Update timestamp handled by Entity lifecycle callback
 
         $this->entityManager->flush();
 
-        // Invalidate both services and providers cache as both are affected
+        // Invalidate both caches as service updates might affect provider data
         $this->cache->invalidateTags(['services_tag', 'providers_tag']);
 
         return new JsonResponse(
