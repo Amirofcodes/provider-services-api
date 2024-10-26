@@ -19,10 +19,13 @@ use Symfony\Contracts\Cache\ItemInterface;
 use App\Exception\ValidationException;
 use App\Exception\ResourceNotFoundException;
 use App\Exception\BusinessLogicException;
+use App\Trait\LoggerTrait;
 
 #[Route('/api')]
 class ProviderController extends AbstractController
 {
+    use LoggerTrait;
+
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ProviderRepository $providerRepository,
@@ -35,9 +38,11 @@ class ProviderController extends AbstractController
     public function index(): JsonResponse
     {
         try {
+            $this->logInfo('Fetching all providers from cache or database');
             $cacheKey = 'providers_list';
 
             $jsonProviders = $this->cache->get($cacheKey, function (ItemInterface $item) {
+                $this->logDebug('Cache miss for providers list, fetching from database');
                 $item->expiresAfter(3600);
                 $item->tag(['providers_tag']);
 
@@ -47,6 +52,10 @@ class ProviderController extends AbstractController
 
             return new JsonResponse($jsonProviders, Response::HTTP_OK, [], true);
         } catch (\Exception $e) {
+            $this->logError('Error fetching providers', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new BusinessLogicException('Error fetching providers: ' . $e->getMessage());
         }
     }
@@ -55,14 +64,14 @@ class ProviderController extends AbstractController
     public function create(Request $request): JsonResponse
     {
         try {
-            // Deserialize into DTO
+            $this->logInfo('Creating new provider');
+
             $providerRequest = $this->serializer->deserialize(
                 $request->getContent(),
                 ProviderRequest::class,
                 'json'
             );
 
-            // Validate
             $violations = $this->validator->validate($providerRequest);
             if (count($violations) > 0) {
                 $errors = [];
@@ -72,15 +81,15 @@ class ProviderController extends AbstractController
                         'message' => $violation->getMessage()
                     ];
                 }
+                $this->logError('Validation failed for provider creation', ['errors' => $errors]);
                 throw new ValidationException($errors);
             }
 
-            // Check if email already exists
             if ($this->providerRepository->findOneBy(['email' => $providerRequest->getEmail()])) {
+                $this->logError('Duplicate email detected', ['email' => $providerRequest->getEmail()]);
                 throw new BusinessLogicException('Email already exists', 'DUPLICATE_EMAIL');
             }
 
-            // Create provider
             $provider = new Provider();
             $provider->setName($providerRequest->getName());
             $provider->setEmail($providerRequest->getEmail());
@@ -90,7 +99,7 @@ class ProviderController extends AbstractController
             $this->entityManager->persist($provider);
             $this->entityManager->flush();
 
-            // Invalidate cache
+            $this->logInfo('Provider created successfully', ['id' => $provider->getId()]);
             $this->cache->invalidateTags(['providers_tag']);
 
             return new JsonResponse(
@@ -102,6 +111,10 @@ class ProviderController extends AbstractController
         } catch (ValidationException | BusinessLogicException $e) {
             throw $e;
         } catch (\Exception $e) {
+            $this->logError('Unexpected error creating provider', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new BusinessLogicException('Error creating provider: ' . $e->getMessage());
         }
     }
@@ -110,18 +123,19 @@ class ProviderController extends AbstractController
     public function update(Request $request, ?Provider $provider = null): JsonResponse
     {
         if (!$provider) {
+            $this->logError('Provider not found for update', ['id' => $request->attributes->get('id')]);
             throw new ResourceNotFoundException('Provider', $request->attributes->get('id'));
         }
 
         try {
-            // Deserialize into DTO
+            $this->logInfo('Updating provider', ['id' => $provider->getId()]);
+
             $updateRequest = $this->serializer->deserialize(
                 $request->getContent(),
                 UpdateProviderRequest::class,
                 'json'
             );
 
-            // Validate
             $violations = $this->validator->validate($updateRequest);
             if (count($violations) > 0) {
                 $errors = [];
@@ -131,16 +145,22 @@ class ProviderController extends AbstractController
                         'message' => $violation->getMessage()
                     ];
                 }
+                $this->logError('Validation failed for provider update', [
+                    'id' => $provider->getId(),
+                    'errors' => $errors
+                ]);
                 throw new ValidationException($errors);
             }
 
-            // Check if email already exists for different provider
             $existingProvider = $this->providerRepository->findOneBy(['email' => $updateRequest->getEmail()]);
             if ($existingProvider && $existingProvider->getId() !== $provider->getId()) {
+                $this->logError('Duplicate email detected during update', [
+                    'id' => $provider->getId(),
+                    'email' => $updateRequest->getEmail()
+                ]);
                 throw new BusinessLogicException('Email already exists', 'DUPLICATE_EMAIL');
             }
 
-            // Update provider
             $provider->setName($updateRequest->getName());
             $provider->setEmail($updateRequest->getEmail());
             $provider->setPhone($updateRequest->getPhone());
@@ -148,7 +168,7 @@ class ProviderController extends AbstractController
 
             $this->entityManager->flush();
 
-            // Invalidate cache
+            $this->logInfo('Provider updated successfully', ['id' => $provider->getId()]);
             $this->cache->invalidateTags(['providers_tag']);
 
             return new JsonResponse(
@@ -160,6 +180,11 @@ class ProviderController extends AbstractController
         } catch (ValidationException | BusinessLogicException $e) {
             throw $e;
         } catch (\Exception $e) {
+            $this->logError('Unexpected error updating provider', [
+                'id' => $provider->getId(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new BusinessLogicException('Error updating provider: ' . $e->getMessage());
         }
     }
@@ -168,18 +193,26 @@ class ProviderController extends AbstractController
     public function delete(?Provider $provider = null): JsonResponse
     {
         if (!$provider) {
+            $this->logError('Provider not found for deletion', ['id' => 'unknown']);
             throw new ResourceNotFoundException('Provider', 'id');
         }
 
         try {
+            $this->logInfo('Deleting provider', ['id' => $provider->getId()]);
+
             $this->entityManager->remove($provider);
             $this->entityManager->flush();
 
-            // Invalidate cache
+            $this->logInfo('Provider deleted successfully', ['id' => $provider->getId()]);
             $this->cache->invalidateTags(['providers_tag']);
 
             return new JsonResponse(null, Response::HTTP_NO_CONTENT);
         } catch (\Exception $e) {
+            $this->logError('Error deleting provider', [
+                'id' => $provider->getId(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new BusinessLogicException('Error deleting provider: ' . $e->getMessage());
         }
     }

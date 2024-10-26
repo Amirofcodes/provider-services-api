@@ -20,10 +20,13 @@ use Symfony\Contracts\Cache\ItemInterface;
 use App\Exception\ValidationException;
 use App\Exception\ResourceNotFoundException;
 use App\Exception\BusinessLogicException;
+use App\Trait\LoggerTrait;
 
 #[Route('/api')]
 class ServiceController extends AbstractController
 {
+    use LoggerTrait;
+
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ServiceRepository $serviceRepository,
@@ -37,9 +40,11 @@ class ServiceController extends AbstractController
     public function index(): JsonResponse
     {
         try {
+            $this->logInfo('Fetching all services from cache or database');
             $cacheKey = 'services_list';
 
             $jsonServices = $this->cache->get($cacheKey, function (ItemInterface $item) {
+                $this->logDebug('Cache miss for services list, fetching from database');
                 $item->expiresAfter(3600);
                 $item->tag(['services_tag']);
 
@@ -49,6 +54,10 @@ class ServiceController extends AbstractController
 
             return new JsonResponse($jsonServices, Response::HTTP_OK, [], true);
         } catch (\Exception $e) {
+            $this->logError('Error fetching services', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new BusinessLogicException('Error fetching services: ' . $e->getMessage());
         }
     }
@@ -57,10 +66,12 @@ class ServiceController extends AbstractController
     public function create(Request $request): JsonResponse
     {
         try {
+            $this->logInfo('Creating new service');
             $content = json_decode($request->getContent(), true);
 
             // Check price format before deserialization
             if (isset($content['price']) && !is_numeric($content['price'])) {
+                $this->logError('Invalid price format provided', ['price' => $content['price']]);
                 throw new ValidationException([
                     ['property' => 'price', 'message' => 'Price must be a valid number']
                 ]);
@@ -73,7 +84,6 @@ class ServiceController extends AbstractController
                 'json'
             );
 
-            // Rest of the validation and processing remains the same...
             $violations = $this->validator->validate($serviceRequest);
             if (count($violations) > 0) {
                 $errors = [];
@@ -83,12 +93,16 @@ class ServiceController extends AbstractController
                         'message' => $violation->getMessage()
                     ];
                 }
+                $this->logError('Validation failed for service creation', ['errors' => $errors]);
                 throw new ValidationException($errors);
             }
 
             // Find provider
             $provider = $this->providerRepository->find($serviceRequest->getProviderId());
             if (!$provider) {
+                $this->logError('Provider not found for service creation', [
+                    'providerId' => $serviceRequest->getProviderId()
+                ]);
                 throw new ResourceNotFoundException('Provider', $serviceRequest->getProviderId());
             }
 
@@ -102,7 +116,11 @@ class ServiceController extends AbstractController
             $this->entityManager->persist($service);
             $this->entityManager->flush();
 
-            // Invalidate cache
+            $this->logInfo('Service created successfully', [
+                'serviceId' => $service->getId(),
+                'providerId' => $provider->getId()
+            ]);
+
             $this->cache->invalidateTags(['services_tag', 'providers_tag']);
 
             return new JsonResponse(
@@ -114,6 +132,10 @@ class ServiceController extends AbstractController
         } catch (ValidationException | ResourceNotFoundException $e) {
             throw $e;
         } catch (\Exception $e) {
+            $this->logError('Unexpected error creating service', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new BusinessLogicException('Error creating service: ' . $e->getMessage());
         }
     }
@@ -122,18 +144,22 @@ class ServiceController extends AbstractController
     public function update(Request $request, ?Service $service = null): JsonResponse
     {
         if (!$service) {
+            $this->logError('Service not found for update', ['id' => $request->attributes->get('id')]);
             throw new ResourceNotFoundException('Service', $request->attributes->get('id'));
         }
 
         try {
-            // Deserialize into DTO
+            $this->logInfo('Updating service', [
+                'serviceId' => $service->getId(),
+                'providerId' => $service->getProvider()->getId()
+            ]);
+
             $updateRequest = $this->serializer->deserialize(
                 $request->getContent(),
                 UpdateServiceRequest::class,
                 'json'
             );
 
-            // Validate
             $violations = $this->validator->validate($updateRequest);
             if (count($violations) > 0) {
                 $errors = [];
@@ -143,17 +169,24 @@ class ServiceController extends AbstractController
                         'message' => $violation->getMessage()
                     ];
                 }
+                $this->logError('Validation failed for service update', [
+                    'serviceId' => $service->getId(),
+                    'errors' => $errors
+                ]);
                 throw new ValidationException($errors);
             }
 
-            // Update service with validated data
             $service->setName($updateRequest->getName());
             $service->setDescription($updateRequest->getDescription());
             $service->setPrice($updateRequest->getPrice());
 
             $this->entityManager->flush();
 
-            // Invalidate both caches as service updates might affect provider data
+            $this->logInfo('Service updated successfully', [
+                'serviceId' => $service->getId(),
+                'providerId' => $service->getProvider()->getId()
+            ]);
+
             $this->cache->invalidateTags(['services_tag', 'providers_tag']);
 
             return new JsonResponse(
@@ -165,6 +198,11 @@ class ServiceController extends AbstractController
         } catch (ValidationException | BusinessLogicException $e) {
             throw $e;
         } catch (\Exception $e) {
+            $this->logError('Unexpected error updating service', [
+                'serviceId' => $service->getId(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new BusinessLogicException('Error updating service: ' . $e->getMessage());
         }
     }
@@ -173,18 +211,33 @@ class ServiceController extends AbstractController
     public function delete(?Service $service = null): JsonResponse
     {
         if (!$service) {
+            $this->logError('Service not found for deletion', ['id' => 'unknown']);
             throw new ResourceNotFoundException('Service', 'id');
         }
 
         try {
+            $this->logInfo('Deleting service', [
+                'serviceId' => $service->getId(),
+                'providerId' => $service->getProvider()->getId()
+            ]);
+
             $this->entityManager->remove($service);
             $this->entityManager->flush();
 
-            // Invalidate both services and providers cache as both are affected
+            $this->logInfo('Service deleted successfully', [
+                'serviceId' => $service->getId(),
+                'providerId' => $service->getProvider()->getId()
+            ]);
+
             $this->cache->invalidateTags(['services_tag', 'providers_tag']);
 
             return new JsonResponse(null, Response::HTTP_NO_CONTENT);
         } catch (\Exception $e) {
+            $this->logError('Error deleting service', [
+                'serviceId' => $service->getId(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw new BusinessLogicException('Error deleting service: ' . $e->getMessage());
         }
     }

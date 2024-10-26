@@ -25,6 +25,17 @@ services:
       $environment: "%kernel.environment%"
     tags:
       - { name: kernel.event_listener, event: kernel.exception }
+  # Configure Logger
+  monolog.logger.app:
+    class: Symfony\Bridge\Monolog\Logger
+    arguments:
+      $name: "app"
+  # Add logger to controllers
+  App\Controller\:
+    resource: "../src/Controller"
+    tags: ["controller.service_arguments"]
+    calls:
+      - setLogger: ["@monolog.logger.app"]
 
   # add more service definitions when explicit configuration is needed
   # please note that last definitions always *replace* previous ones
