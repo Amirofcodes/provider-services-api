@@ -5,33 +5,54 @@ namespace App\Entity;
 use App\Repository\ServiceRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: ServiceRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Service
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['service:read', 'provider:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(['service:read', 'service:write', 'provider:read'])]
     private ?string $name = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[Groups(['service:read', 'service:write', 'provider:read'])]
     private ?string $description = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
+    #[Groups(['service:read', 'service:write', 'provider:read'])]
     private ?string $price = null;
 
     #[ORM\ManyToOne(inversedBy: 'services')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Groups(['service:read', 'service:write'])]
     private ?Provider $provider = null;
 
     #[ORM\Column]
+    #[Groups(['service:read'])]
     private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[Groups(['service:read'])]
     private ?\DateTimeInterface $updatedAt = null;
+
+    public function __construct()
+    {
+        $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = new \DateTime();
+    }
+
+    #[ORM\PreUpdate]
+    public function updateTimestamps(): void
+    {
+        $this->updatedAt = new \DateTime();
+    }
 
     public function getId(): ?int
     {

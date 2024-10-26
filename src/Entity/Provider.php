@@ -7,6 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: ProviderRepository::class)]
 class Provider
@@ -14,25 +15,33 @@ class Provider
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['provider:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(['provider:read', 'provider:write'])]
     private ?string $name = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(['provider:read', 'provider:write'])]
     private ?string $email = null;
 
     #[ORM\Column(length: 20, nullable: true)]
+    #[Groups(['provider:read', 'provider:write'])]
     private ?string $phone = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['provider:read', 'provider:write'])]
     private ?string $address = null;
 
     #[ORM\Column]
+    #[Groups(['provider:read'])]
     private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[Groups(['provider:read'])]
     private ?\DateTimeInterface $updatedAt = null;
+
 
     /**
      * @var Collection<int, Service>
@@ -43,6 +52,14 @@ class Provider
     public function __construct()
     {
         $this->services = new ArrayCollection();
+        $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = new \DateTime();
+    }
+
+    #[ORM\PreUpdate]
+    public function updateTimestamps(): void
+    {
+        $this->updatedAt = new \DateTime();
     }
 
     public function getId(): ?int
