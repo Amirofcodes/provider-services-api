@@ -57,6 +57,15 @@ class ServiceController extends AbstractController
     public function create(Request $request): JsonResponse
     {
         try {
+            $content = json_decode($request->getContent(), true);
+
+            // Check price format before deserialization
+            if (isset($content['price']) && !is_numeric($content['price'])) {
+                throw new ValidationException([
+                    ['property' => 'price', 'message' => 'Price must be a valid number']
+                ]);
+            }
+
             // Deserialize into DTO
             $serviceRequest = $this->serializer->deserialize(
                 $request->getContent(),
@@ -64,7 +73,7 @@ class ServiceController extends AbstractController
                 'json'
             );
 
-            // Validate
+            // Rest of the validation and processing remains the same...
             $violations = $this->validator->validate($serviceRequest);
             if (count($violations) > 0) {
                 $errors = [];
@@ -102,7 +111,7 @@ class ServiceController extends AbstractController
                 [],
                 true
             );
-        } catch (ValidationException | ResourceNotFoundException | BusinessLogicException $e) {
+        } catch (ValidationException | ResourceNotFoundException $e) {
             throw $e;
         } catch (\Exception $e) {
             throw new BusinessLogicException('Error creating service: ' . $e->getMessage());
