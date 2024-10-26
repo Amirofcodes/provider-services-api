@@ -19,47 +19,57 @@ class ServiceRequest
     private ?string $description = null;
 
     #[Assert\NotBlank(message: 'Price is required')]
-    #[Assert\Regex(
-        pattern: '/^\d+(\.\d{1,2})?$/',
-        message: 'Price must be a valid number with up to 2 decimal places'
+    #[Assert\Type(
+        type: 'float',
+        message: 'Price must be a number'
     )]
-    private ?string $price = null;
+    #[Assert\GreaterThan(
+        value: 0,
+        message: 'Price must be greater than zero'
+    )]
+    private ?float $price = null;
 
     #[Assert\NotNull(message: 'Provider ID is required')]
     private ?int $providerId = null;
 
-    // Getters and setters
     public function getName(): ?string
     {
         return $this->name;
     }
+
     public function setName(?string $name): self
     {
         $this->name = $name;
         return $this;
     }
+
     public function getDescription(): ?string
     {
         return $this->description;
     }
+
     public function setDescription(?string $description): self
     {
         $this->description = $description;
         return $this;
     }
-    public function getPrice(): ?string
+
+    public function getPrice(): ?float
     {
         return $this->price;
     }
-    public function setPrice(?string $price): self
+
+    public function setPrice(?float $price): self
     {
         $this->price = $price;
         return $this;
     }
+
     public function getProviderId(): ?int
     {
         return $this->providerId;
     }
+
     public function setProviderId(?int $providerId): self
     {
         $this->providerId = $providerId;
