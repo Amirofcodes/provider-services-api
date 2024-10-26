@@ -35,11 +35,11 @@ class Service
     private ?Provider $provider = null;
 
     #[ORM\Column]
-    #[Groups(['service:read'])]
+    #[Groups(['service:read', 'provider:read'])]
     private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    #[Groups(['service:read'])]
+    #[Groups(['service:read', 'provider:read'])]
     private ?\DateTimeInterface $updatedAt = null;
 
     public function __construct()
@@ -67,7 +67,6 @@ class Service
     public function setName(string $name): static
     {
         $this->name = $name;
-
         return $this;
     }
 
@@ -79,7 +78,6 @@ class Service
     public function setDescription(?string $description): static
     {
         $this->description = $description;
-
         return $this;
     }
 
@@ -91,7 +89,6 @@ class Service
     public function setPrice(string $price): static
     {
         $this->price = $price;
-
         return $this;
     }
 
@@ -103,7 +100,6 @@ class Service
     public function setProvider(?Provider $provider): static
     {
         $this->provider = $provider;
-
         return $this;
     }
 
@@ -115,7 +111,6 @@ class Service
     public function setCreatedAt(\DateTimeImmutable $createdAt): static
     {
         $this->createdAt = $createdAt;
-
         return $this;
     }
 
@@ -127,7 +122,6 @@ class Service
     public function setUpdatedAt(\DateTimeInterface $updatedAt): static
     {
         $this->updatedAt = $updatedAt;
-
         return $this;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Service;
 use App\Repository\ServiceRepository;
+use App\Repository\ProviderRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,6 +19,7 @@ class ServiceController extends AbstractController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ServiceRepository $serviceRepository,
+        private ProviderRepository $providerRepository,
         private SerializerInterface $serializer
     ) {}
 
@@ -33,7 +35,21 @@ class ServiceController extends AbstractController
     #[Route('/services', name: 'create_service', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $service = $this->serializer->deserialize($request->getContent(), Service::class, 'json');
+        $data = json_decode($request->getContent(), true);
+
+        // Find the provider
+        $providerId = $data['provider'] ?? null;
+        $provider = $providerId ? $this->providerRepository->find($providerId) : null;
+
+        if (!$provider) {
+            return new JsonResponse(['error' => 'Provider not found'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $service = new Service();
+        $service->setName($data['name']);
+        $service->setDescription($data['description']);
+        $service->setPrice($data['price']);
+        $service->setProvider($provider);
 
         $this->entityManager->persist($service);
         $this->entityManager->flush();
@@ -49,16 +65,31 @@ class ServiceController extends AbstractController
     #[Route('/services/{id}', name: 'update_service', methods: ['PUT'])]
     public function update(Request $request, Service $service): JsonResponse
     {
-        $updatedService = $this->serializer->deserialize($request->getContent(), Service::class, 'json');
+        $data = json_decode($request->getContent(), true);
 
-        $service->setName($updatedService->getName());
-        $service->setDescription($updatedService->getDescription());
-        $service->setPrice($updatedService->getPrice());
-        $service->setProvider($updatedService->getProvider());
+        // Find the provider
+        $providerId = $data['provider'] ?? null;
+        $provider = $providerId ? $this->providerRepository->find($providerId) : null;
+
+        if (!$provider) {
+            return new JsonResponse(['error' => 'Provider not found'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Update the service fields
+        $service->setName($data['name']);
+        $service->setDescription($data['description']);
+        $service->setPrice($data['price']);
+        $service->setProvider($provider);
+        $service->setUpdatedAt(new \DateTime());
 
         $this->entityManager->flush();
 
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        return new JsonResponse(
+            $this->serializer->serialize($service, 'json', ['groups' => 'service:read']),
+            Response::HTTP_OK,
+            [],
+            true
+        );
     }
 
     #[Route('/services/{id}', name: 'delete_service', methods: ['DELETE'])]
