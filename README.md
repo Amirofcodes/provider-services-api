@@ -168,6 +168,46 @@ docker-compose exec app php bin/console doctrine:migrations:migrate
 docker-compose exec app php bin/console make:migration
 ```
 
+## Git Strategy
+
+### Initial Development Phase
+
+The initial project setup and basic API implementation were developed on the main branch, including:
+
+- Project initialization with Symfony 6.4
+- Docker configuration
+- Basic entity structure (Provider and Service)
+- Initial API endpoints implementation
+- Relationship handling and serialization
+
+### Current Development Strategy - GitFlow Lite
+
+From the implementation of additional features onwards, we adopted a more structured branching strategy:
+
+```
+main
+  └── dev
+       ├── feat/redis-cache
+       ├── feat/input-validation
+       └── feat/error-handling
+```
+
+#### Branch Structure
+
+- `main`: Production-ready code
+- `dev`: Development integration branch
+- `feat/*`: Feature-specific branches
+
+#### Workflow
+
+1. Create feature branch from dev
+2. Develop and test feature
+3. Merge feature to dev
+4. Test integration in dev
+5. When release-ready, merge dev to main
+
+This transition in Git strategy demonstrates the evolution from a basic setup to a more professional development workflow, better suited for team collaboration and production deployment.
+
 ## Contributing
 
 This project was created as part of my studies at IT-Akademy. While it's primarily for educational purposes, feedback and suggestions are welcome.

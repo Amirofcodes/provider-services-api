@@ -11,6 +11,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 #[Route('/api')]
 class ProviderController extends AbstractController
@@ -18,14 +20,22 @@ class ProviderController extends AbstractController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ProviderRepository $providerRepository,
-        private SerializerInterface $serializer
+        private SerializerInterface $serializer,
+        private TagAwareCacheInterface $cache
     ) {}
 
     #[Route('/providers', name: 'get_providers', methods: ['GET'])]
     public function index(): JsonResponse
     {
-        $providers = $this->providerRepository->findAll();
-        $jsonProviders = $this->serializer->serialize($providers, 'json', ['groups' => 'provider:read']);
+        $cacheKey = 'providers_list';
+
+        $jsonProviders = $this->cache->get($cacheKey, function (ItemInterface $item) {
+            $item->expiresAfter(3600);
+            $item->tag(['providers_tag']);
+
+            $providers = $this->providerRepository->findAll();
+            return $this->serializer->serialize($providers, 'json', ['groups' => 'provider:read']);
+        });
 
         return new JsonResponse($jsonProviders, Response::HTTP_OK, [], true);
     }
@@ -37,6 +47,9 @@ class ProviderController extends AbstractController
 
         $this->entityManager->persist($provider);
         $this->entityManager->flush();
+
+        // Invalidate the providers list cache when a new provider is added
+        $this->cache->invalidateTags(['providers_tag']);
 
         return new JsonResponse(
             $this->serializer->serialize($provider, 'json', ['groups' => 'provider:read']),
@@ -59,6 +72,9 @@ class ProviderController extends AbstractController
 
         $this->entityManager->flush();
 
+        // Invalidate the providers list cache when a provider is updated
+        $this->cache->invalidateTags(['providers_tag']);
+
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
@@ -67,6 +83,9 @@ class ProviderController extends AbstractController
     {
         $this->entityManager->remove($provider);
         $this->entityManager->flush();
+
+        // Invalidate the providers list cache when a provider is deleted
+        $this->cache->invalidateTags(['providers_tag']);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
