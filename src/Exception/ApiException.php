@@ -32,33 +32,3 @@ class ApiException extends HttpException
         return $this->errorCode;
     }
 }
-
-class ResourceNotFoundException extends ApiException
-{
-    public function __construct(string $resource = '', string $id = '')
-    {
-        $message = $resource ? sprintf('%s with id %s not found', $resource, $id) : 'Resource not found';
-        parent::__construct($message, 'RESOURCE_NOT_FOUND', [], 404);
-    }
-}
-
-class ValidationException extends ApiException
-{
-    public function __construct(array $violations)
-    {
-        parent::__construct(
-            'Validation failed',
-            'VALIDATION_FAILED',
-            $violations,
-            400
-        );
-    }
-}
-
-class BusinessLogicException extends ApiException
-{
-    public function __construct(string $message, string $errorCode = 'BUSINESS_LOGIC_ERROR', array $errors = [])
-    {
-        parent::__construct($message, $errorCode, $errors, 422);
-    }
-}
