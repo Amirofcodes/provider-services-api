@@ -1,0 +1,77 @@
+
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+###> IDE files ###
+.idea/
+.vscode/    
+
+# PhpStorm
+*.iml
+/.idea/workspace.xml
+/.idea/tasks.xml
+/.idea/dictionaries
+/.idea/vcs.xml
+/.idea/jsLibraryMappings.xml
+/.idea/modules.xml
+/.idea/.name
+/.idea/.gitignore
+/.idea/.ideaVCS
+
+###> OS files ###
+.DS_Store
+Thumbs.db
+###< OS files ###
+
+###> Docker ###
+/docker/data/
+###< Docker ###
+
+###> Environment files ###
+.env
+.env.local
+.env.*.local
+.env.local.php
+.env.local.php.dist
+.env.*.local.php
+.env.*.local.php.dist
+.env.prod
+.env.prod.local
+.env.prod.local.php
+.env.prod.local.php.dist
+.env.test
+.env.test.local
+.env.test.local.php
+.env.test.local.php.dist
+.env.dev
+.env.dev.local
+.env.dev.local.php
+.env.dev.local.php.dist
+.env.staging
+.env.staging.local
+.env.staging.local.php
+.env.staging.local.php.dist
+.env.prod.docker
+.env.prod.docker.local
+.env.prod.docker.local.php
+.env.prod.docker.local.php.dist 
+.env.prod.docker.local.php.dist
+.env.prod.docker.local.php.dist
+.env.prod.docker.local.php.dist
+.env.prod.docker.local.php.dist
+.env.prod.docker.local.php.dist
+.env.prod.docker.local.php.dist
+
+
+###< user files ###
+.aidigestignore
+codebase.md 
+directoriestree.txt
+
+# End of file
