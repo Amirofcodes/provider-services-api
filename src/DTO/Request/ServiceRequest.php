@@ -19,15 +19,12 @@ class ServiceRequest
     private ?string $description = null;
 
     #[Assert\NotBlank(message: 'Price is required')]
-    #[Assert\Type(
-        type: 'float',
-        message: 'Price must be a number'
+    #[Assert\Type(type: 'string', message: 'Price must be a string')]
+    #[Assert\Regex(
+        pattern: '/^\d+\.\d{2}$/',
+        message: 'Price must be a valid number with exactly 2 decimal places'
     )]
-    #[Assert\GreaterThan(
-        value: 0,
-        message: 'Price must be greater than zero'
-    )]
-    private ?float $price = null;
+    private ?string $price = null;
 
     #[Assert\NotNull(message: 'Provider ID is required')]
     private ?int $providerId = null;
@@ -54,13 +51,17 @@ class ServiceRequest
         return $this;
     }
 
-    public function getPrice(): ?float
+    public function getPrice(): ?string
     {
         return $this->price;
     }
 
-    public function setPrice(?float $price): self
+    public function setPrice(string $price): self
     {
+        // Validate format before setting
+        if (!preg_match('/^\d+\.\d{2}$/', $price)) {
+            throw new \InvalidArgumentException('Price must be in format "XXX.XX"');
+        }
         $this->price = $price;
         return $this;
     }

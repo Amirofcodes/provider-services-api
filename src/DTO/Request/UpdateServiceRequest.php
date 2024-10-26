@@ -19,39 +19,46 @@ class UpdateServiceRequest
     private ?string $description = null;
 
     #[Assert\NotBlank(message: 'Price is required')]
+    #[Assert\Type(type: 'string', message: 'Price must be a string')]
     #[Assert\Regex(
-        pattern: '/^\d+(\.\d{1,2})?$/',
-        message: 'Price must be a valid number with up to 2 decimal places'
+        pattern: '/^\d+\.\d{2}$/',
+        message: 'Price must be a valid number with exactly 2 decimal places'
     )]
     private ?string $price = null;
 
-    // No providerId required for update as it's part of the existing service
-
-    // Getters and setters
     public function getName(): ?string
     {
         return $this->name;
     }
+
     public function setName(?string $name): self
     {
         $this->name = $name;
         return $this;
     }
+
     public function getDescription(): ?string
     {
         return $this->description;
     }
+
     public function setDescription(?string $description): self
     {
         $this->description = $description;
         return $this;
     }
+
     public function getPrice(): ?string
     {
         return $this->price;
     }
-    public function setPrice(?string $price): self
+
+    public function setPrice(string $price): self
     {
+        // Validate format before setting
+        if (!preg_match('/^\d+\.\d{2}$/', $price)) {
+            throw new \InvalidArgumentException('Price must be in format "XXX.XX"');
+        }
         $this->price = $price;
         return $this;
     }

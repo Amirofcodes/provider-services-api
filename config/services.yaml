@@ -19,18 +19,31 @@ services:
       - "../src/DependencyInjection/"
       - "../src/Entity/"
       - "../src/Kernel.php"
+
+  # Configure Exception Listener
   App\EventListener\ApiExceptionListener:
     arguments:
-      $logger: "@logger"
+      $logger: "@monolog.logger.app"
       $environment: "%kernel.environment%"
     tags:
       - { name: kernel.event_listener, event: kernel.exception }
-  # Configure Logger
-  monolog.logger.app:
-    class: Symfony\Bridge\Monolog\Logger
+
+  # Configure Logger Service
+  Monolog\Logger:
     arguments:
       $name: "app"
-  # Add logger to controllers
+      $handlers: []
+
+  monolog.logger.app:
+    class: Monolog\Logger
+    arguments:
+      $name: "app"
+    calls:
+      - method: pushHandler
+        arguments:
+          - "@monolog.handler.app"
+
+  # Configure Controllers
   App\Controller\:
     resource: "../src/Controller"
     tags: ["controller.service_arguments"]
