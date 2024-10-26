@@ -19,7 +19,10 @@ services:
       - "../src/DependencyInjection/"
       - "../src/Entity/"
       - "../src/Kernel.php"
-  App\EventListener\ValidationExceptionListener:
+  App\EventListener\ApiExceptionListener:
+    arguments:
+      $logger: "@logger"
+      $environment: "%kernel.environment%"
     tags:
       - { name: kernel.event_listener, event: kernel.exception }
 

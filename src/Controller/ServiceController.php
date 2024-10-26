@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\DTO\Request\ServiceRequest;
+use App\DTO\Request\UpdateServiceRequest;
 use App\Entity\Service;
 use App\Repository\ServiceRepository;
 use App\Repository\ProviderRepository;
@@ -15,9 +16,10 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
-use Symfony\Component\Validator\Exception\ValidationFailedException;
 use Symfony\Contracts\Cache\ItemInterface;
-use App\DTO\Request\UpdateServiceRequest;
+use App\Exception\ValidationException;
+use App\Exception\ResourceNotFoundException;
+use App\Exception\BusinessLogicException;
 
 #[Route('/api')]
 class ServiceController extends AbstractController
@@ -34,110 +36,147 @@ class ServiceController extends AbstractController
     #[Route('/services', name: 'get_services', methods: ['GET'])]
     public function index(): JsonResponse
     {
-        $cacheKey = 'services_list';
+        try {
+            $cacheKey = 'services_list';
 
-        $jsonServices = $this->cache->get($cacheKey, function (ItemInterface $item) {
-            $item->expiresAfter(3600);
-            $item->tag(['services_tag']);
+            $jsonServices = $this->cache->get($cacheKey, function (ItemInterface $item) {
+                $item->expiresAfter(3600);
+                $item->tag(['services_tag']);
 
-            $services = $this->serviceRepository->findAll();
-            return $this->serializer->serialize($services, 'json', ['groups' => 'service:read']);
-        });
+                $services = $this->serviceRepository->findAll();
+                return $this->serializer->serialize($services, 'json', ['groups' => 'service:read']);
+            });
 
-        return new JsonResponse($jsonServices, Response::HTTP_OK, [], true);
+            return new JsonResponse($jsonServices, Response::HTTP_OK, [], true);
+        } catch (\Exception $e) {
+            throw new BusinessLogicException('Error fetching services: ' . $e->getMessage());
+        }
     }
 
     #[Route('/services', name: 'create_service', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        // Deserialize into DTO
-        $serviceRequest = $this->serializer->deserialize(
-            $request->getContent(),
-            ServiceRequest::class,
-            'json'
-        );
-
-        // Validate
-        $violations = $this->validator->validate($serviceRequest);
-        if (count($violations) > 0) {
-            throw new ValidationFailedException($serviceRequest, $violations);
-        }
-
-        // Find provider
-        $provider = $this->providerRepository->find($serviceRequest->getProviderId());
-        if (!$provider) {
-            return new JsonResponse(
-                ['message' => 'Provider not found'],
-                Response::HTTP_NOT_FOUND
+        try {
+            // Deserialize into DTO
+            $serviceRequest = $this->serializer->deserialize(
+                $request->getContent(),
+                ServiceRequest::class,
+                'json'
             );
+
+            // Validate
+            $violations = $this->validator->validate($serviceRequest);
+            if (count($violations) > 0) {
+                $errors = [];
+                foreach ($violations as $violation) {
+                    $errors[] = [
+                        'property' => $violation->getPropertyPath(),
+                        'message' => $violation->getMessage()
+                    ];
+                }
+                throw new ValidationException($errors);
+            }
+
+            // Find provider
+            $provider = $this->providerRepository->find($serviceRequest->getProviderId());
+            if (!$provider) {
+                throw new ResourceNotFoundException('Provider', $serviceRequest->getProviderId());
+            }
+
+            // Create service
+            $service = new Service();
+            $service->setName($serviceRequest->getName());
+            $service->setDescription($serviceRequest->getDescription());
+            $service->setPrice($serviceRequest->getPrice());
+            $service->setProvider($provider);
+
+            $this->entityManager->persist($service);
+            $this->entityManager->flush();
+
+            // Invalidate cache
+            $this->cache->invalidateTags(['services_tag', 'providers_tag']);
+
+            return new JsonResponse(
+                $this->serializer->serialize($service, 'json', ['groups' => 'service:read']),
+                Response::HTTP_CREATED,
+                [],
+                true
+            );
+        } catch (ValidationException | ResourceNotFoundException | BusinessLogicException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            throw new BusinessLogicException('Error creating service: ' . $e->getMessage());
         }
-
-        // Create service
-        $service = new Service();
-        $service->setName($serviceRequest->getName());
-        $service->setDescription($serviceRequest->getDescription());
-        $service->setPrice($serviceRequest->getPrice());
-        $service->setProvider($provider);
-
-        $this->entityManager->persist($service);
-        $this->entityManager->flush();
-
-        // Invalidate cache
-        $this->cache->invalidateTags(['services_tag', 'providers_tag']);
-
-        return new JsonResponse(
-            $this->serializer->serialize($service, 'json', ['groups' => 'service:read']),
-            Response::HTTP_CREATED,
-            [],
-            true
-        );
     }
 
     #[Route('/services/{id}', name: 'update_service', methods: ['PUT'])]
-    public function update(Request $request, Service $service): JsonResponse
+    public function update(Request $request, ?Service $service = null): JsonResponse
     {
-        // Deserialize into DTO
-        $updateRequest = $this->serializer->deserialize(
-            $request->getContent(),
-            UpdateServiceRequest::class,
-            'json'
-        );
-
-        // Validate
-        $violations = $this->validator->validate($updateRequest);
-        if (count($violations) > 0) {
-            throw new ValidationFailedException($updateRequest, $violations);
+        if (!$service) {
+            throw new ResourceNotFoundException('Service', $request->attributes->get('id'));
         }
 
-        // Update service with validated data
-        $service->setName($updateRequest->getName());
-        $service->setDescription($updateRequest->getDescription());
-        $service->setPrice($updateRequest->getPrice());
+        try {
+            // Deserialize into DTO
+            $updateRequest = $this->serializer->deserialize(
+                $request->getContent(),
+                UpdateServiceRequest::class,
+                'json'
+            );
 
-        // Update timestamp handled by Entity lifecycle callback
+            // Validate
+            $violations = $this->validator->validate($updateRequest);
+            if (count($violations) > 0) {
+                $errors = [];
+                foreach ($violations as $violation) {
+                    $errors[] = [
+                        'property' => $violation->getPropertyPath(),
+                        'message' => $violation->getMessage()
+                    ];
+                }
+                throw new ValidationException($errors);
+            }
 
-        $this->entityManager->flush();
+            // Update service with validated data
+            $service->setName($updateRequest->getName());
+            $service->setDescription($updateRequest->getDescription());
+            $service->setPrice($updateRequest->getPrice());
 
-        // Invalidate both caches as service updates might affect provider data
-        $this->cache->invalidateTags(['services_tag', 'providers_tag']);
+            $this->entityManager->flush();
 
-        return new JsonResponse(
-            $this->serializer->serialize($service, 'json', ['groups' => 'service:read']),
-            Response::HTTP_OK,
-            [],
-            true
-        );
+            // Invalidate both caches as service updates might affect provider data
+            $this->cache->invalidateTags(['services_tag', 'providers_tag']);
+
+            return new JsonResponse(
+                $this->serializer->serialize($service, 'json', ['groups' => 'service:read']),
+                Response::HTTP_OK,
+                [],
+                true
+            );
+        } catch (ValidationException | BusinessLogicException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            throw new BusinessLogicException('Error updating service: ' . $e->getMessage());
+        }
     }
 
     #[Route('/services/{id}', name: 'delete_service', methods: ['DELETE'])]
-    public function delete(Service $service): JsonResponse
+    public function delete(?Service $service = null): JsonResponse
     {
-        $this->entityManager->remove($service);
-        $this->entityManager->flush();
+        if (!$service) {
+            throw new ResourceNotFoundException('Service', 'id');
+        }
 
-        // Invalidate both services and providers cache as both are affected
-        $this->cache->invalidateTags(['services_tag', 'providers_tag']);
+        try {
+            $this->entityManager->remove($service);
+            $this->entityManager->flush();
 
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+            // Invalidate both services and providers cache as both are affected
+            $this->cache->invalidateTags(['services_tag', 'providers_tag']);
+
+            return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        } catch (\Exception $e) {
+            throw new BusinessLogicException('Error deleting service: ' . $e->getMessage());
+        }
     }
 }
