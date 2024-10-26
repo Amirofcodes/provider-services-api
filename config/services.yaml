@@ -19,12 +19,36 @@ services:
       - "../src/DependencyInjection/"
       - "../src/Entity/"
       - "../src/Kernel.php"
+
+  # Configure Exception Listener
   App\EventListener\ApiExceptionListener:
     arguments:
-      $logger: "@logger"
+      $logger: "@monolog.logger.app"
       $environment: "%kernel.environment%"
     tags:
       - { name: kernel.event_listener, event: kernel.exception }
+
+  # Configure Logger Service
+  Monolog\Logger:
+    arguments:
+      $name: "app"
+      $handlers: []
+
+  monolog.logger.app:
+    class: Monolog\Logger
+    arguments:
+      $name: "app"
+    calls:
+      - method: pushHandler
+        arguments:
+          - "@monolog.handler.app"
+
+  # Configure Controllers
+  App\Controller\:
+    resource: "../src/Controller"
+    tags: ["controller.service_arguments"]
+    calls:
+      - setLogger: ["@monolog.logger.app"]
 
   # add more service definitions when explicit configuration is needed
   # please note that last definitions always *replace* previous ones
