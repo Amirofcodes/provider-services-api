@@ -7,6 +7,7 @@ use App\DTO\Request\UpdateProviderRequest;
 use App\Entity\Provider;
 use App\Repository\ProviderRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +23,7 @@ use App\Exception\BusinessLogicException;
 use App\Trait\LoggerTrait;
 
 #[Route('/api')]
+#[OA\Tag(name: 'Providers')]
 class ProviderController extends AbstractController
 {
     use LoggerTrait;
@@ -35,6 +37,24 @@ class ProviderController extends AbstractController
     ) {}
 
     #[Route('/providers', name: 'get_providers', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/providers',
+        description: 'Retrieves the list of all providers',
+        summary: 'Get all providers'
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Returns all providers',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/Provider')
+        )
+    )]
+    #[OA\Response(
+        response: 500,
+        description: 'Internal server error',
+        content: new OA\JsonContent(ref: '#/components/schemas/Error')
+    )]
     public function index(): JsonResponse
     {
         try {
@@ -86,6 +106,30 @@ class ProviderController extends AbstractController
     }
 
     #[Route('/providers', name: 'create_provider', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/providers',
+        description: 'Creates a new provider',
+        summary: 'Create a provider'
+    )]
+    #[OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/Provider')
+    )]
+    #[OA\Response(
+        response: 201,
+        description: 'Provider successfully created',
+        content: new OA\JsonContent(ref: '#/components/schemas/Provider')
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'Invalid input',
+        content: new OA\JsonContent(ref: '#/components/responses/ValidationError')
+    )]
+    #[OA\Response(
+        response: 500,
+        description: 'Internal server error',
+        content: new OA\JsonContent(ref: '#/components/schemas/Error')
+    )]
     public function create(Request $request): JsonResponse
     {
         try {
@@ -177,6 +221,37 @@ class ProviderController extends AbstractController
     }
 
     #[Route('/providers/{id}', name: 'update_provider', methods: ['PUT'])]
+    #[OA\Put(
+        path: '/api/providers/{id}',
+        description: 'Updates an existing provider',
+        summary: 'Update a provider'
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        in: 'path',
+        required: true,
+        schema: new OA\Schema(type: 'integer'),
+        description: 'ID of the provider to update'
+    )]
+    #[OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/Provider')
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Provider successfully updated',
+        content: new OA\JsonContent(ref: '#/components/schemas/Provider')
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'Invalid input',
+        content: new OA\JsonContent(ref: '#/components/responses/ValidationError')
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Provider not found',
+        content: new OA\JsonContent(ref: '#/components/schemas/Error')
+    )]
     public function update(Request $request, ?Provider $provider = null): JsonResponse
     {
         if (!$provider) {
@@ -302,6 +377,27 @@ class ProviderController extends AbstractController
     }
 
     #[Route('/providers/{id}', name: 'delete_provider', methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/api/providers/{id}',
+        description: 'Deletes a provider',
+        summary: 'Delete a provider'
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        in: 'path',
+        required: true,
+        schema: new OA\Schema(type: 'integer'),
+        description: 'ID of the provider to delete'
+    )]
+    #[OA\Response(
+        response: 204,
+        description: 'Provider successfully deleted'
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Provider not found',
+        content: new OA\JsonContent(ref: '#/components/schemas/Error')
+    )]
     public function delete(?Provider $provider = null): JsonResponse
     {
         if (!$provider) {

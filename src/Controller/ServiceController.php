@@ -8,6 +8,7 @@ use App\Entity\Service;
 use App\Repository\ServiceRepository;
 use App\Repository\ProviderRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +25,7 @@ use App\Trait\LoggerTrait;
 use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
 
 #[Route('/api')]
+#[OA\Tag(name: 'Services')]
 class ServiceController extends AbstractController
 {
     use LoggerTrait;
@@ -38,6 +40,24 @@ class ServiceController extends AbstractController
     ) {}
 
     #[Route('/services', name: 'get_services', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/services',
+        description: 'Retrieves the list of all services',
+        summary: 'Get all services'
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Returns all services',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/Service')
+        )
+    )]
+    #[OA\Response(
+        response: 500,
+        description: 'Internal server error',
+        content: new OA\JsonContent(ref: '#/components/schemas/Error')
+    )]
     public function index(): JsonResponse
     {
         try {
@@ -90,6 +110,30 @@ class ServiceController extends AbstractController
     }
 
     #[Route('/services', name: 'create_service', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/services',
+        description: 'Creates a new service',
+        summary: 'Create a service'
+    )]
+    #[OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/Service')
+    )]
+    #[OA\Response(
+        response: 201,
+        description: 'Service successfully created',
+        content: new OA\JsonContent(ref: '#/components/schemas/Service')
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'Invalid input',
+        content: new OA\JsonContent(ref: '#/components/responses/ValidationError')
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Provider not found',
+        content: new OA\JsonContent(ref: '#/components/schemas/Error')
+    )]
     public function create(Request $request): JsonResponse
     {
         try {
@@ -224,6 +268,37 @@ class ServiceController extends AbstractController
     }
 
     #[Route('/services/{id}', name: 'update_service', methods: ['PUT'])]
+    #[OA\Put(
+        path: '/api/services/{id}',
+        description: 'Updates an existing service',
+        summary: 'Update a service'
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        in: 'path',
+        required: true,
+        schema: new OA\Schema(type: 'integer'),
+        description: 'ID of the service to update'
+    )]
+    #[OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/UpdateService')
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Service successfully updated',
+        content: new OA\JsonContent(ref: '#/components/schemas/Service')
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'Invalid input',
+        content: new OA\JsonContent(ref: '#/components/responses/ValidationError')
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Service not found',
+        content: new OA\JsonContent(ref: '#/components/schemas/Error')
+    )]
     public function update(Request $request, ?Service $service = null): JsonResponse
     {
         if (!$service) {
@@ -377,6 +452,27 @@ class ServiceController extends AbstractController
     }
 
     #[Route('/services/{id}', name: 'delete_service', methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/api/services/{id}',
+        description: 'Deletes a service',
+        summary: 'Delete a service'
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        in: 'path',
+        required: true,
+        schema: new OA\Schema(type: 'integer'),
+        description: 'ID of the service to delete'
+    )]
+    #[OA\Response(
+        response: 204,
+        description: 'Service successfully deleted'
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Service not found',
+        content: new OA\JsonContent(ref: '#/components/schemas/Error')
+    )]
     public function delete(Request $request, ?Service $service = null): JsonResponse
     {
         if (!$service) {
