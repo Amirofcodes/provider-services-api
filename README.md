@@ -8,10 +8,10 @@ This project is an implementation of a provider-services management system that 
 
 - Management of service providers (CRUD operations)
 - Management of services offered by providers (CRUD operations)
-- Proper relationship handling between providers and services
 - Data persistence using MySQL
 - Cache management with Redis
 - Email notifications for provider updates
+- Comprehensive API documentation with OpenAPI/Swagger
 
 ### Technical Stack
 
@@ -37,53 +37,97 @@ cd provider-services-api
 docker-compose up -d
 ```
 
-3. Access the application
+3. Install dependencies
+
+```bash
+composer install
+```
+
+4. Run migrations
+
+```bash
+php bin/console doctrine:migrations:migrate
+```
+
+5. Access the application
 
 ```bash
 # The API will be available at:
 http://localhost:8000/api
+
+# API Documentation is available at:
+http://localhost:8000/api/doc
 ```
 
-## API Endpoints
+## API Documentation
 
-### Providers
+The API documentation is available through Swagger UI at `/api/doc` and provides:
+
+- Detailed endpoint descriptions
+- Request/Response schemas
+- Validation rules
+- Error responses
+- Example payloads
+
+### Available Endpoints
+
+#### Providers
 
 - `GET /api/providers` - Get all providers
 - `POST /api/providers` - Create a new provider
 - `PUT /api/providers/{id}` - Update a provider
 - `DELETE /api/providers/{id}` - Delete a provider
 
-### Services
+#### Services
 
 - `GET /api/services` - Get all services
 - `POST /api/services` - Create a new service
 - `PUT /api/services/{id}` - Update a service
 - `DELETE /api/services/{id}` - Delete a service
 
+## Features
+
+### Implemented Features
+
+- ✅ Complete CRUD operations for Providers and Services
+- ✅ Data validation and error handling
+- ✅ Redis caching with automatic invalidation
+- ✅ Comprehensive logging system
+- ✅ OpenAPI/Swagger documentation
+- ✅ Docker containerization
+- ✅ Environment-based configuration
+
+### Upcoming Features
+
+- 🔄 Admin commands for maintenance tasks
+- 🔄 Authentication and authorization
+- 🔄 Comprehensive test suite
+- 🔄 Performance optimizations
+
 ## 12-Factor App Implementation
 
 This application follows the 12-Factor App methodology:
 
-1. **Codebase**
+1. **Codebase** ✅
 
    - Single codebase tracked in Git
    - Multiple deploys through Docker
 
-2. **Dependencies**
+2. **Dependencies** ✅
 
    - Explicitly declared in `composer.json`
    - Isolated through Docker containers
 
-3. **Config**
+3. **Config** ✅
 
    - Environment variables in `.env` files
-   - Sensitive data protected and not in version control
+   - Sensitive data protected
 
-4. **Backing Services**
+4. **Backing Services** ✅
 
-   - MySQL database treated as attached resource
+   - MySQL database
    - Redis for caching
-   - Mailtrap for email notifications in testing
+   - Mailtrap for email notifications
 
 5. **Build, Release, Run**
 
