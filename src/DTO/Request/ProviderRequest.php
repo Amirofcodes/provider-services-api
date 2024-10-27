@@ -2,6 +2,7 @@
 
 namespace App\DTO\Request;
 
+use OpenApi\Attributes as OA;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class ProviderRequest
@@ -41,38 +42,44 @@ class ProviderRequest
     )]
     private ?string $address = null;
 
-    // Getters and setters
     public function getName(): ?string
     {
         return $this->name;
     }
+
     public function setName(?string $name): self
     {
         $this->name = $name;
         return $this;
     }
+
     public function getEmail(): ?string
     {
         return $this->email;
     }
+
     public function setEmail(?string $email): self
     {
         $this->email = $email;
         return $this;
     }
+
     public function getPhone(): ?string
     {
         return $this->phone;
     }
+
     public function setPhone(?string $phone): self
     {
         $this->phone = $phone;
         return $this;
     }
+
     public function getAddress(): ?string
     {
         return $this->address;
     }
+
     public function setAddress(?string $address): self
     {
         $this->address = $address;
